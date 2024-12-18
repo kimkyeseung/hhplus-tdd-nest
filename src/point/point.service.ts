@@ -70,7 +70,8 @@ export class PointService {
       throw new NotFoundException(`User with id ${id} not found`);
     }
 
-    if (user.point < useDto.amount) {
+    const isUsable = await this.getIsUsable(id, useDto.amount);
+    if (!isUsable) {
       throw new BadRequestException('잔고가 충분하지 않습니다.');
     }
 
