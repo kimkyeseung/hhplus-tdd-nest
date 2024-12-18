@@ -15,6 +15,22 @@ export class PointService {
     private readonly historyDb: PointHistoryTable,
   ) {}
 
+  private locks: Map<number, Promise<void>> = new Map();
+
+  private async acquireLock(id: number): Promise<void> {
+    while (this.locks.has(id)) {
+      await this.locks.get(id);
+    }
+
+    const resolver = () => this.locks.delete(id);
+    this.locks.set(
+      id,
+      new Promise<void>((r) => setTimeout(r, 0)).then(() => {
+        resolver();
+      }),
+    );
+  }
+
   async findById(id: number): Promise<UserPoint> {
     const user = await this.userDb.selectById(id);
     if (!user) {
@@ -65,24 +81,29 @@ export class PointService {
       throw new BadRequestException('사용 금액은 1원 이상의 정수여야 합니다.');
     }
 
-    const user = await this.userDb.selectById(id);
-    if (!user) {
-      throw new NotFoundException(`User with id ${id} not found`);
+    await this.acquireLock(id);
+
+    try {
+      const user = await this.userDb.selectById(id);
+      if (!user) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      if (user.point < useDto.amount) {
+        throw new BadRequestException('잔고가 충분하지 않습니다.');
+      }
+
+      await this.userDb.insertOrUpdate(id, user.point - useDto.amount);
+
+      const updateMillis = Date.now();
+      return await this.historyDb.insert(
+        id,
+        useDto.amount,
+        TransactionType.USE,
+        updateMillis,
+      );
+    } finally {
+      this.locks.delete(id);
     }
-
-    const isUsable = await this.getIsUsable(id, useDto.amount);
-    if (!isUsable) {
-      throw new BadRequestException('잔고가 충분하지 않습니다.');
-    }
-
-    await this.userDb.insertOrUpdate(id, user.point - useDto.amount);
-
-    const updateMillis = Date.now();
-    return await this.historyDb.insert(
-      id,
-      useDto.amount,
-      TransactionType.USE,
-      updateMillis,
-    );
   }
 }
