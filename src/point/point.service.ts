@@ -29,28 +29,19 @@ export class PointService {
     );
   }
 
-  async findById(id: number): Promise<UserPoint> {
+  private async validateUserExists(id: number): Promise<UserPoint> {
     const user = await this.userDb.selectById(id);
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
+    if (!user) throw new NotFoundException('사용자를 찾을 수 없습니다.');
     return user;
   }
 
-  async findHistoriesById(id: number): Promise<PointHistory[]> {
-    const user = await this.userDb.selectById(id);
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-    return await this.historyDb.selectAllByUserId(id);
+  async findById(id: number): Promise<UserPoint> {
+    return await this.validateUserExists(id);
   }
 
-  async getIsUsable(id: number, amount: number): Promise<boolean> {
-    const user = await this.userDb.selectById(id);
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-    return user.point >= amount;
+  async findHistoriesById(id: number): Promise<PointHistory[]> {
+    await this.validateUserExists(id);
+    return this.historyDb.selectAllByUserId(id);
   }
 
   async charge(id: number, chargeDto: PointBody): Promise<PointHistory> {
@@ -58,11 +49,7 @@ export class PointService {
       throw new BadRequestException('충전 금액은 1원 이상의 정수여야 합니다.');
     }
 
-    const user = await this.userDb.selectById(id);
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-
+    const user = await this.validateUserExists(id);
     await this.userDb.insertOrUpdate(id, user.point + chargeDto.amount);
 
     const updateMillis = Date.now();
@@ -82,11 +69,7 @@ export class PointService {
     await this.acquireLock(id);
 
     try {
-      const user = await this.userDb.selectById(id);
-      if (!user) {
-        throw new NotFoundException('사용자를 찾을 수 없습니다.');
-      }
-
+      const user = await this.validateUserExists(id);
       if (user.point < useDto.amount) {
         throw new BadRequestException('잔고가 충분하지 않습니다.');
       }
