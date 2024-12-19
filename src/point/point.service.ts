@@ -25,9 +25,7 @@ export class PointService {
     const resolver = () => this.locks.delete(id);
     this.locks.set(
       id,
-      new Promise<void>((r) => setTimeout(r, 0)).then(() => {
-        resolver();
-      }),
+      new Promise<void>((r) => setTimeout(r, 0)).finally(resolver),
     );
   }
 
