@@ -16,6 +16,7 @@
     "test": "jest --config package.json",
     "test:watch": "jest --watch --config package.json",
     "test:coverage": "jest --coverage --config package.json",
+    "test:integration": "jest --config ./test/integration/jest-integration.json",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand --config package.json",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "sonar": "node report.js"
